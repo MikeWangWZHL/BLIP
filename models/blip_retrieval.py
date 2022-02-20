@@ -70,43 +70,58 @@ class BLIP_Retrieval(nn.Module):
         
         
     def forward(self, image, caption, alpha, idx):
+        print('### start forward ###')
         with torch.no_grad():
             self.temp.clamp_(0.001,0.5)
         
         image_embeds = self.visual_encoder(image) 
+        print('image embed size:', image_embeds.size())
         image_atts = torch.ones(image_embeds.size()[:-1],dtype=torch.long).to(image.device)        
-        image_feat = F.normalize(self.vision_proj(image_embeds[:,0,:]),dim=-1)    
+        print('image att size:', image_atts.size())
+        image_feat = F.normalize(self.vision_proj(image_embeds[:,0,:]),dim=-1) # [CLS] embedding for image 
+        print('image feat size:', image_feat.size())
         
         text = self.tokenizer(caption, padding='max_length', truncation=True, max_length=35, 
                               return_tensors="pt").to(image.device) 
         
         text_output = self.text_encoder(text.input_ids, attention_mask = text.attention_mask,                      
                                         return_dict = True, mode = 'text')            
-        text_feat = F.normalize(self.text_proj(text_output.last_hidden_state[:,0,:]),dim=-1)        
+        text_feat = F.normalize(self.text_proj(text_output.last_hidden_state[:,0,:]),dim=-1) # [CLS] embedding for text
+        print('text feat size:', text_feat.size())
         
         ###============== Image-text Contrastive Learning ===================###
+        print('idx size:', idx.size(),'idx:', idx)
+        print('idx queue size:', self.idx_queue.size())
         idx = idx.view(-1,1)
         idx_all = torch.cat([idx.t(), self.idx_queue.clone().detach()],dim=1)  
+        print('idx all size:', idx_all.size())
         pos_idx = torch.eq(idx, idx_all).float()       
+        print('pos_idx size:', pos_idx.size())
         sim_targets = pos_idx / pos_idx.sum(1,keepdim=True)   
+        print('sim_targets size:', sim_targets.size())
         
         # get momentum features
         with torch.no_grad():
             self._momentum_update()
             image_embeds_m = self.visual_encoder_m(image) 
             image_feat_m = F.normalize(self.vision_proj_m(image_embeds_m[:,0,:]),dim=-1)  
-            image_feat_m_all = torch.cat([image_feat_m.t(),self.image_queue.clone().detach()],dim=1)                   
+            image_feat_m_all = torch.cat([image_feat_m.t(),self.image_queue.clone().detach()],dim=1) # transpose and concat           
             
             text_output_m = self.text_encoder_m(text.input_ids, attention_mask = text.attention_mask,                      
                                                 return_dict = True, mode = 'text')    
             text_feat_m = F.normalize(self.text_proj_m(text_output_m.last_hidden_state[:,0,:]),dim=-1) 
             text_feat_m_all = torch.cat([text_feat_m.t(),self.text_queue.clone().detach()],dim=1)
+            print('image_feat_m size:', image_feat_m.size())
+            print('image_feat_m_all size:', image_feat_m_all.size())
+            print('text_feat_m size:', text_feat_m.size())
+            print('text_feat_m_all size:', text_feat_m_all.size())
 
             sim_i2t_m = image_feat_m @ text_feat_m_all / self.temp  
             sim_t2i_m = text_feat_m @ image_feat_m_all / self.temp 
 
             sim_targets = torch.zeros(sim_i2t_m.size()).to(image.device)
             sim_targets.fill_diagonal_(1)          
+            print('sim_targets size:', sim_targets.size())
 
             sim_i2t_targets = alpha * F.softmax(sim_i2t_m, dim=1) + (1 - alpha) * sim_targets
             sim_t2i_targets = alpha * F.softmax(sim_t2i_m, dim=1) + (1 - alpha) * sim_targets        
@@ -120,7 +135,9 @@ class BLIP_Retrieval(nn.Module):
         loss_ita = (loss_i2t+loss_t2i)/2
         
         idxs = concat_all_gather(idx)
+        print('idxs size after concat all gather:', idxs.size())
         self._dequeue_and_enqueue(image_feat_m, text_feat_m, idxs)        
+        quit()
 
         ###============== Image-text Matching ===================###
         encoder_input_ids = text.input_ids.clone()
@@ -133,7 +150,7 @@ class BLIP_Retrieval(nn.Module):
                                        encoder_hidden_states = image_embeds,
                                        encoder_attention_mask = image_atts,      
                                        return_dict = True,
-                                      )  
+                                      )  # image-grounded text encoder
         
         
         if self.negative_all_rank:    

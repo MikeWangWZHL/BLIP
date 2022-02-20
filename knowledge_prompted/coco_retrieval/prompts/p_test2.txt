@@ -1,0 +1,12 @@
+Generate some knowledge about the concepts in the video description. Examples:
+Description:the man in the video is showing a brief viewing of how the movie is starting.
+Knowledge:A movie can be played on TVs, computers, screens. Usually, a logo of the film production company will be shown at the beginning of a movie. 
+Description:models are walking down a short runway.
+Knowledge:Models often wear fancy clothes. Models usually appear on fashion shows.
+Description:a woman feeds another.
+Knowledge:They tend to be very close to each other. The food is usually cooked well.
+Description:she used an electric blender.
+Knowledge:A electric blender is usually been used for mixing ingredients. A electric blender is often used for making cakes and breads.
+Description:list of people s involved in making the documentary.
+Knowledge:The end credits, which appear after the final scene of a film, list everyone involved in the production.
+Description:

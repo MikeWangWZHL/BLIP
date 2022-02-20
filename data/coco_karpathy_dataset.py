@@ -47,8 +47,8 @@ class coco_karpathy_train(Dataset):
         caption = self.prompt+pre_caption(ann['caption'], self.max_words) 
 
         return image, caption, self.img_ids[ann['image_id']] 
-    
-    
+
+
 class coco_karpathy_caption_eval(Dataset):
     def __init__(self, transform, image_root, ann_root, split):  
         '''
@@ -81,7 +81,6 @@ class coco_karpathy_caption_eval(Dataset):
         
         return image, int(img_id)   
     
-    
 class coco_karpathy_retrieval_eval(Dataset):
     def __init__(self, transform, image_root, ann_root, split, max_words=30):  
         '''
@@ -95,6 +94,45 @@ class coco_karpathy_retrieval_eval(Dataset):
         
         download_url(urls[split],ann_root)
         
+        self.annotation = json.load(open(os.path.join(ann_root,filenames[split]),'r'))
+        self.transform = transform
+        self.image_root = image_root
+        
+        self.text = []
+        self.image = []
+        self.txt2img = {}
+        self.img2txt = {}
+        
+        txt_id = 0
+        for img_id, ann in enumerate(self.annotation):
+            self.image.append(ann['image'])
+            self.img2txt[img_id] = []
+            for i, caption in enumerate(ann['caption']):
+                self.text.append(pre_caption(caption,max_words))
+                self.img2txt[img_id].append(txt_id)
+                self.txt2img[txt_id] = img_id
+                txt_id += 1
+                                    
+    def __len__(self):
+        return len(self.annotation)
+    
+    def __getitem__(self, index):    
+        
+        image_path = os.path.join(self.image_root, self.annotation[index]['image'])        
+        image = Image.open(image_path).convert('RGB')    
+        image = self.transform(image)  
+
+        return image, index
+
+class coco_karpathy_retrieval_eval_subset_custom(Dataset):
+    def __init__(self, transform, image_root, ann_root, split, max_words=64):  
+        '''
+        image_root (string): Root directory of images (e.g. coco/images/)
+        ann_root (string): directory to store the annotation file
+        split (string): val or test
+        '''
+        print('ann root:', ann_root)
+        filenames = {'val':'coco_karpathy_val_subset_custom.json','test':'coco_karpathy_test_subset_custom.json'}
         self.annotation = json.load(open(os.path.join(ann_root,filenames[split]),'r'))
         self.transform = transform
         self.image_root = image_root

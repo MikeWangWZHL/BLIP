@@ -3,6 +3,7 @@ ann_root: 'annotation'
 dataset: 'coco'
 
 # set pretrained as a file path or an url
+# pretrained: '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/ckpt/finetuned/model_base_retrieval_coco.pth'
 pretrained: 'https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_base_retrieval_coco.pth'
 
 # size of vit model; base or large
