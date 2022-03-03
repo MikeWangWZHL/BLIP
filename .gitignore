@@ -1,0 +1,50 @@
+.vscode 
+
+*.jpg
+*.png
+
+# Packages #
+############
+# it's better to unpack these files and commit the raw source
+# git has its own built in compression methods
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# Logs and databases #
+######################
+*.log
+*.sql
+*.sqlite
+.ipynb_checkpoints/
+*.swp
+*.vscode/
+*.idea/
+
+# OS generated files #
+######################
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# project-specific
+img
+txt
+ext
+output
+ckpt
+pre-training_datasets
+data_engineering/grouping
+data_engineering/srl_results
+data_engineering/visualization
+batching
+embedding

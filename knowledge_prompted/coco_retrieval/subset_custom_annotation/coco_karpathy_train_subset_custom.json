@@ -1,0 +1,502 @@
+[
+    {
+        "caption": "A woman wearing a net on her head cutting a cake. ",
+        "image": "val2014/COCO_val2014_000000522418.jpg",
+        "image_id": "coco_522418"
+    },
+    {
+        "caption": "A woman cutting a large white sheet cake.",
+        "image": "val2014/COCO_val2014_000000522418.jpg",
+        "image_id": "coco_522418"
+    },
+    {
+        "caption": "A woman wearing a hair net cutting a large sheet cake.",
+        "image": "val2014/COCO_val2014_000000522418.jpg",
+        "image_id": "coco_522418"
+    },
+    {
+        "caption": "there is a woman that is cutting a white cake",
+        "image": "val2014/COCO_val2014_000000522418.jpg",
+        "image_id": "coco_522418"
+    },
+    {
+        "caption": "A woman marking a cake with the back of a chef's knife. ",
+        "image": "val2014/COCO_val2014_000000522418.jpg",
+        "image_id": "coco_522418"
+    },
+    {
+        "caption": "A young boy standing in front of a computer keyboard.",
+        "image": "val2014/COCO_val2014_000000318219.jpg",
+        "image_id": "coco_318219"
+    },
+    {
+        "caption": "a little boy wearing headphones and looking at a computer monitor",
+        "image": "val2014/COCO_val2014_000000318219.jpg",
+        "image_id": "coco_318219"
+    },
+    {
+        "caption": "He is listening intently to the computer at school.",
+        "image": "val2014/COCO_val2014_000000318219.jpg",
+        "image_id": "coco_318219"
+    },
+    {
+        "caption": "A young boy stares up at the computer monitor.",
+        "image": "val2014/COCO_val2014_000000318219.jpg",
+        "image_id": "coco_318219"
+    },
+    {
+        "caption": "a young kid with head phones on using a computer ",
+        "image": "val2014/COCO_val2014_000000318219.jpg",
+        "image_id": "coco_318219"
+    },
+    {
+        "caption": "a boy wearing headphones using one computer in a long row of computers",
+        "image": "val2014/COCO_val2014_000000554625.jpg",
+        "image_id": "coco_554625"
+    },
+    {
+        "caption": "A little boy with earphones on listening to something.",
+        "image": "val2014/COCO_val2014_000000554625.jpg",
+        "image_id": "coco_554625"
+    },
+    {
+        "caption": "A group of people sitting at desk using computers.",
+        "image": "val2014/COCO_val2014_000000554625.jpg",
+        "image_id": "coco_554625"
+    },
+    {
+        "caption": "Children sitting at computer stations on a long table.",
+        "image": "val2014/COCO_val2014_000000554625.jpg",
+        "image_id": "coco_554625"
+    },
+    {
+        "caption": "A small child wearing headphones plays on the computer.",
+        "image": "val2014/COCO_val2014_000000554625.jpg",
+        "image_id": "coco_554625"
+    },
+    {
+        "caption": "A man is in a kitchen making pizzas.",
+        "image": "val2014/COCO_val2014_000000397133.jpg",
+        "image_id": "coco_397133"
+    },
+    {
+        "caption": "Man in apron standing on front of oven with pans and bakeware",
+        "image": "val2014/COCO_val2014_000000397133.jpg",
+        "image_id": "coco_397133"
+    },
+    {
+        "caption": "A baker is working in the kitchen rolling dough.",
+        "image": "val2014/COCO_val2014_000000397133.jpg",
+        "image_id": "coco_397133"
+    },
+    {
+        "caption": "A person standing by a stove in a kitchen.",
+        "image": "val2014/COCO_val2014_000000397133.jpg",
+        "image_id": "coco_397133"
+    },
+    {
+        "caption": "A table with pies being made and a person standing near a wall with pots and pans hanging on the wall.",
+        "image": "val2014/COCO_val2014_000000397133.jpg",
+        "image_id": "coco_397133"
+    },
+    {
+        "caption": "A woman in a room with a cat.",
+        "image": "val2014/COCO_val2014_000000574769.jpg",
+        "image_id": "coco_574769"
+    },
+    {
+        "caption": "A girl smiles as she holds a cat and wears a brightly colored skirt.",
+        "image": "val2014/COCO_val2014_000000574769.jpg",
+        "image_id": "coco_574769"
+    },
+    {
+        "caption": "a woman is holding a cat in her kitchen",
+        "image": "val2014/COCO_val2014_000000574769.jpg",
+        "image_id": "coco_574769"
+    },
+    {
+        "caption": "A woman is working in a kitchen carrying a soft toy.",
+        "image": "val2014/COCO_val2014_000000574769.jpg",
+        "image_id": "coco_574769"
+    },
+    {
+        "caption": "A woman is holding a cat in her kitchen.",
+        "image": "val2014/COCO_val2014_000000574769.jpg",
+        "image_id": "coco_574769"
+    },
+    {
+        "caption": "A commercial stainless kitchen with a pot of food cooking. ",
+        "image": "val2014/COCO_val2014_000000309022.jpg",
+        "image_id": "coco_309022"
+    },
+    {
+        "caption": "Some food sits in a pot in a kitchen. ",
+        "image": "val2014/COCO_val2014_000000309022.jpg",
+        "image_id": "coco_309022"
+    },
+    {
+        "caption": "A kitchen has all stainless steel appliances and counters.",
+        "image": "val2014/COCO_val2014_000000309022.jpg",
+        "image_id": "coco_309022"
+    },
+    {
+        "caption": "a kitchen with a sink and many cooking machines and a pot of food",
+        "image": "val2014/COCO_val2014_000000309022.jpg",
+        "image_id": "coco_309022"
+    },
+    {
+        "caption": "Food cooks in a pot on a stove in a kitchen.",
+        "image": "val2014/COCO_val2014_000000309022.jpg",
+        "image_id": "coco_309022"
+    },
+    {
+        "caption": "Two men wearing aprons working in a commercial-style kitchen.",
+        "image": "val2014/COCO_val2014_000000005802.jpg",
+        "image_id": "coco_5802"
+    },
+    {
+        "caption": "Chefs preparing food in a professional metallic style kitchen.",
+        "image": "val2014/COCO_val2014_000000005802.jpg",
+        "image_id": "coco_5802"
+    },
+    {
+        "caption": "Two people standing around in a large kitchen.",
+        "image": "val2014/COCO_val2014_000000005802.jpg",
+        "image_id": "coco_5802"
+    },
+    {
+        "caption": "A commercial kitchen with two men working to prepare several plates.",
+        "image": "val2014/COCO_val2014_000000005802.jpg",
+        "image_id": "coco_5802"
+    },
+    {
+        "caption": "two men in white shirts in a large steel kitchen",
+        "image": "val2014/COCO_val2014_000000005802.jpg",
+        "image_id": "coco_5802"
+    },
+    {
+        "caption": "Two chefs in a restaurant kitchen preparing food. ",
+        "image": "val2014/COCO_val2014_000000222564.jpg",
+        "image_id": "coco_222564"
+    },
+    {
+        "caption": "Two cooks are cooking the food someone ordered at this restaurant",
+        "image": "val2014/COCO_val2014_000000222564.jpg",
+        "image_id": "coco_222564"
+    },
+    {
+        "caption": "The chef is cooking with pans on the stove next to an oven. ",
+        "image": "val2014/COCO_val2014_000000222564.jpg",
+        "image_id": "coco_222564"
+    },
+    {
+        "caption": "Two men that are standing in a kitchen.",
+        "image": "val2014/COCO_val2014_000000222564.jpg",
+        "image_id": "coco_222564"
+    },
+    {
+        "caption": "Two cooks are near the stove in a stainless steel kitchen.",
+        "image": "val2014/COCO_val2014_000000222564.jpg",
+        "image_id": "coco_222564"
+    },
+    {
+        "caption": "this is a very dark picture of a room with a shelf",
+        "image": "val2014/COCO_val2014_000000118113.jpg",
+        "image_id": "coco_118113"
+    },
+    {
+        "caption": "a cluttered room with a table and shelf on the wall.",
+        "image": "val2014/COCO_val2014_000000118113.jpg",
+        "image_id": "coco_118113"
+    },
+    {
+        "caption": "A view of a messy room, with shelves on the wall.",
+        "image": "val2014/COCO_val2014_000000118113.jpg",
+        "image_id": "coco_118113"
+    },
+    {
+        "caption": "A dark and cluttered storage area with wood walls.",
+        "image": "val2014/COCO_val2014_000000118113.jpg",
+        "image_id": "coco_118113"
+    },
+    {
+        "caption": "A dim lit room consisting of many objects put together. ",
+        "image": "val2014/COCO_val2014_000000118113.jpg",
+        "image_id": "coco_118113"
+    },
+    {
+        "caption": "A kitchen filled with black appliances and lots of counter top space.",
+        "image": "val2014/COCO_val2014_000000193271.jpg",
+        "image_id": "coco_193271"
+    },
+    {
+        "caption": "some brown cabinets a black oven a tea kettle and a microwave",
+        "image": "val2014/COCO_val2014_000000193271.jpg",
+        "image_id": "coco_193271"
+    },
+    {
+        "caption": "A small kitchen with glass and wooden cabinets.",
+        "image": "val2014/COCO_val2014_000000193271.jpg",
+        "image_id": "coco_193271"
+    },
+    {
+        "caption": "A modern style kitchen filled with may different items.",
+        "image": "val2014/COCO_val2014_000000193271.jpg",
+        "image_id": "coco_193271"
+    },
+    {
+        "caption": "A kitchen with wooden cabinets and black appliances.",
+        "image": "val2014/COCO_val2014_000000193271.jpg",
+        "image_id": "coco_193271"
+    },
+    {
+        "caption": "A professional kitchen filled with sinks and appliances.",
+        "image": "val2014/COCO_val2014_000000224736.jpg",
+        "image_id": "coco_224736"
+    },
+    {
+        "caption": "A kitchen area with toilet and various cleaning appliances.",
+        "image": "val2014/COCO_val2014_000000224736.jpg",
+        "image_id": "coco_224736"
+    },
+    {
+        "caption": "A commercial dish washing station with a toilet in it.",
+        "image": "val2014/COCO_val2014_000000224736.jpg",
+        "image_id": "coco_224736"
+    },
+    {
+        "caption": "A toilet and mop bucket in a kitchen.",
+        "image": "val2014/COCO_val2014_000000224736.jpg",
+        "image_id": "coco_224736"
+    },
+    {
+        "caption": "A cluttered room with a sink, a toilet and in industrial mop bucket.",
+        "image": "val2014/COCO_val2014_000000224736.jpg",
+        "image_id": "coco_224736"
+    },
+    {
+        "caption": "A kitchen with wood floors and lots of furniture.",
+        "image": "val2014/COCO_val2014_000000374628.jpg",
+        "image_id": "coco_374628"
+    },
+    {
+        "caption": "A beautiful, open kitchen and dining room area features an island in the center and wood cabinets and large windows.",
+        "image": "val2014/COCO_val2014_000000374628.jpg",
+        "image_id": "coco_374628"
+    },
+    {
+        "caption": "A kitchen made of mostly wood with a small desk with a laptop.",
+        "image": "val2014/COCO_val2014_000000374628.jpg",
+        "image_id": "coco_374628"
+    },
+    {
+        "caption": "A very spacious room with a kitchen and dining area.",
+        "image": "val2014/COCO_val2014_000000374628.jpg",
+        "image_id": "coco_374628"
+    },
+    {
+        "caption": "A full view of an open kitchen and dining area.",
+        "image": "val2014/COCO_val2014_000000374628.jpg",
+        "image_id": "coco_374628"
+    },
+    {
+        "caption": "A woman eating vegetables in front of a stove.",
+        "image": "val2014/COCO_val2014_000000328757.jpg",
+        "image_id": "coco_328757"
+    },
+    {
+        "caption": "A woman forks vegetables out of a bowl into her mouth. ",
+        "image": "val2014/COCO_val2014_000000328757.jpg",
+        "image_id": "coco_328757"
+    },
+    {
+        "caption": "Woman eating an assortment of mixed vegetables in a bowl.",
+        "image": "val2014/COCO_val2014_000000328757.jpg",
+        "image_id": "coco_328757"
+    },
+    {
+        "caption": "A young woman standing in a kitchen eats a plate of vegetables.",
+        "image": "val2014/COCO_val2014_000000328757.jpg",
+        "image_id": "coco_328757"
+    },
+    {
+        "caption": "A woman eating fresh vegetables from a bowl.",
+        "image": "val2014/COCO_val2014_000000328757.jpg",
+        "image_id": "coco_328757"
+    },
+    {
+        "caption": "A boy performing a kickflip on his skateboard on a city street.",
+        "image": "val2014/COCO_val2014_000000293802.jpg",
+        "image_id": "coco_293802"
+    },
+    {
+        "caption": "A man is doing a trick on a skateboard",
+        "image": "val2014/COCO_val2014_000000293802.jpg",
+        "image_id": "coco_293802"
+    },
+    {
+        "caption": "A guy jumps in the air with his skateboard beneath him.",
+        "image": "val2014/COCO_val2014_000000293802.jpg",
+        "image_id": "coco_293802"
+    },
+    {
+        "caption": "Man in all black doing a trick on his skateboard.",
+        "image": "val2014/COCO_val2014_000000293802.jpg",
+        "image_id": "coco_293802"
+    },
+    {
+        "caption": "A skateboarder flipping his board on a street.",
+        "image": "val2014/COCO_val2014_000000293802.jpg",
+        "image_id": "coco_293802"
+    },
+    {
+        "caption": "A kitchen with a stove, microwave and refrigerator.",
+        "image": "val2014/COCO_val2014_000000086408.jpg",
+        "image_id": "coco_86408"
+    },
+    {
+        "caption": "A refrigerator, oven and microwave sitting in a kitchen.",
+        "image": "val2014/COCO_val2014_000000086408.jpg",
+        "image_id": "coco_86408"
+    },
+    {
+        "caption": "The kitchenette uses  small space to great efficiency.",
+        "image": "val2014/COCO_val2014_000000086408.jpg",
+        "image_id": "coco_86408"
+    },
+    {
+        "caption": "an image of a kitchen setting with black appliances",
+        "image": "val2014/COCO_val2014_000000086408.jpg",
+        "image_id": "coco_86408"
+    },
+    {
+        "caption": "A kitchen with cabinets, a stove, microwave and refrigerator.",
+        "image": "val2014/COCO_val2014_000000086408.jpg",
+        "image_id": "coco_86408"
+    },
+    {
+        "caption": "The dining table near the kitchen has a bowl of fruit on it.",
+        "image": "val2014/COCO_val2014_000000037777.jpg",
+        "image_id": "coco_37777"
+    },
+    {
+        "caption": "A small kitchen has various appliances and a table.",
+        "image": "val2014/COCO_val2014_000000037777.jpg",
+        "image_id": "coco_37777"
+    },
+    {
+        "caption": "The kitchen is clean and ready for us to see.",
+        "image": "val2014/COCO_val2014_000000037777.jpg",
+        "image_id": "coco_37777"
+    },
+    {
+        "caption": "A kitchen and dining area decorated in white.",
+        "image": "val2014/COCO_val2014_000000037777.jpg",
+        "image_id": "coco_37777"
+    },
+    {
+        "caption": "A kitchen that has a bowl of fruit on the table.",
+        "image": "val2014/COCO_val2014_000000037777.jpg",
+        "image_id": "coco_37777"
+    },
+    {
+        "caption": "A group of people riding on the back of a loaded red pickup truck.",
+        "image": "val2014/COCO_val2014_000000372938.jpg",
+        "image_id": "coco_372938"
+    },
+    {
+        "caption": "A truck with a number of people and things in the back",
+        "image": "val2014/COCO_val2014_000000372938.jpg",
+        "image_id": "coco_372938"
+    },
+    {
+        "caption": "Men are crowded on the back of a small overloaded pickup truck.",
+        "image": "val2014/COCO_val2014_000000372938.jpg",
+        "image_id": "coco_372938"
+    },
+    {
+        "caption": "An old pick up truck over loaded with people and cargo.",
+        "image": "val2014/COCO_val2014_000000372938.jpg",
+        "image_id": "coco_372938"
+    },
+    {
+        "caption": "A truck carries a large amount of items and a few people.",
+        "image": "val2014/COCO_val2014_000000372938.jpg",
+        "image_id": "coco_372938"
+    },
+    {
+        "caption": "A large boat filled with mean on wheels.",
+        "image": "val2014/COCO_val2014_000000204805.jpg",
+        "image_id": "coco_204805"
+    },
+    {
+        "caption": "A bunch of people aboard a boat with wheels. ",
+        "image": "val2014/COCO_val2014_000000204805.jpg",
+        "image_id": "coco_204805"
+    },
+    {
+        "caption": "A boat is being rolled on a trailer",
+        "image": "val2014/COCO_val2014_000000204805.jpg",
+        "image_id": "coco_204805"
+    },
+    {
+        "caption": "A large boat full of men is sitting on a cart ",
+        "image": "val2014/COCO_val2014_000000204805.jpg",
+        "image_id": "coco_204805"
+    },
+    {
+        "caption": "A boat full of people is on a trailer with wheels.",
+        "image": "val2014/COCO_val2014_000000204805.jpg",
+        "image_id": "coco_204805"
+    },
+    {
+        "caption": "several young students working at a desk with multiple computers",
+        "image": "val2014/COCO_val2014_000000113588.jpg",
+        "image_id": "coco_113588"
+    },
+    {
+        "caption": "A young man at his workstation examines the monitor of a lap top, with one hand on the keyboard and the other on the mouse.",
+        "image": "val2014/COCO_val2014_000000113588.jpg",
+        "image_id": "coco_113588"
+    },
+    {
+        "caption": "A man is working on a laptop next to other computers.",
+        "image": "val2014/COCO_val2014_000000113588.jpg",
+        "image_id": "coco_113588"
+    },
+    {
+        "caption": "People in a large room, use multiple computers.",
+        "image": "val2014/COCO_val2014_000000113588.jpg",
+        "image_id": "coco_113588"
+    },
+    {
+        "caption": "A young professional is working at his laptop while his coworker is reading material.",
+        "image": "val2014/COCO_val2014_000000113588.jpg",
+        "image_id": "coco_113588"
+    },
+    {
+        "caption": "A man riding an elephant into some water of a creek.",
+        "image": "val2014/COCO_val2014_000000384553.jpg",
+        "image_id": "coco_384553"
+    },
+    {
+        "caption": "man riding an elephant into water surrounded by forest",
+        "image": "val2014/COCO_val2014_000000384553.jpg",
+        "image_id": "coco_384553"
+    },
+    {
+        "caption": "A man riding an elephant in a river.",
+        "image": "val2014/COCO_val2014_000000384553.jpg",
+        "image_id": "coco_384553"
+    },
+    {
+        "caption": "A man in a brown shirt rides an elephant into the water.",
+        "image": "val2014/COCO_val2014_000000384553.jpg",
+        "image_id": "coco_384553"
+    },
+    {
+        "caption": "A man rides an elephant into a river.",
+        "image": "val2014/COCO_val2014_000000384553.jpg",
+        "image_id": "coco_384553"
+    }
+]

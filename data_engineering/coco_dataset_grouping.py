@@ -1,0 +1,1129 @@
+import os
+import json
+import sys
+
+from torch.utils.data import Dataset
+from torchvision.datasets.utils import download_url
+from torchvision import transforms
+from torchvision.transforms.functional import InterpolationMode
+
+from PIL import Image
+
+import numpy as np
+import random
+from tqdm import tqdm
+from transformers import CLIPProcessor, CLIPVisionModel, CLIPTokenizer, CLIPTextModel, CLIPModel, CLIPFeatureExtractor
+import torch
+from sklearn.cluster import KMeans
+from collections import defaultdict
+import re 
+
+import matplotlib.pyplot as plt
+
+sys.path.insert(1, '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP')
+print(sys.path)
+from models.blip_embedding import blip_embedding
+
+
+def pre_caption(caption,max_words=50):
+    caption = re.sub(
+        r"([.!\"()*#:;~])",       
+        ' ',
+        caption.lower(),
+    )
+    caption = re.sub(
+        r"\s{2,}",
+        ' ',
+        caption,
+    )
+    caption = caption.rstrip('\n') 
+    caption = caption.strip(' ')
+
+    #truncate caption
+    caption_words = caption.split(' ')
+    if len(caption_words)>max_words:
+        caption = ' '.join(caption_words[:max_words])
+            
+    return caption
+
+def compute_embeddings_clip(image_id_2_data, model, processor, device, embedding_mode = 'orignal'):
+    image_ids = []
+    image_embeddings = []
+    text_embeddings = []
+    print('computing embeddings...')
+    if embedding_mode == 'original':
+        for key in tqdm(image_id_2_data.keys()):
+            image = Image.open(image_id_2_data[key]['image_path']).convert('RGB')
+            texts = image_id_2_data[key]['captions']
+            inputs = processor(
+                text=texts, images=image, return_tensors="pt", padding=True
+            ).to(device)
+            outputs = model(**inputs)
+            im_emb = outputs.image_embeds # (1,512)
+            txt_emb = outputs.text_embeds # (m,512) m is the number of captions corresponding to this image
+            image_embeddings.append(im_emb[0].detach().cpu().numpy())
+            text_embeddings.append(txt_emb.detach().cpu().numpy())
+            image_ids.append(key)
+    elif embedding_mode == 'srl_verb':
+        print('using srl_verbs to compute text embedding...')
+        for key in tqdm(image_id_2_data.keys()):
+            image = Image.open(image_id_2_data[key]['image_path']).convert('RGB')
+            texts = []
+            raw_text_captions = []
+            for caption_obj in image_id_2_data[key]['captions']:
+                raw_text_captions.append(caption_obj['text'])
+                # print(caption_obj)
+                assert 'verbs' in caption_obj
+                verb_list = [] 
+                for verb_obj in caption_obj['verbs']:
+                    # print(verb_obj)
+                    verb = verb_obj['verb']
+                    if verb.lower() not in ['am','is','are','was','were','being','be']:
+                        verb_list.append(verb.strip())
+                if verb_list:
+                    verb_string = ', '.join(verb_list)
+                    texts.append(verb_string)
+                else:
+                    texts.append(caption_obj['text'])
+            image_id_2_data[key]['captions'] = raw_text_captions
+            print(texts)
+            inputs = processor( 
+                text=texts, images=image, return_tensors="pt", padding=True
+            ).to(device)
+            outputs = model(**inputs)
+            im_emb = outputs.image_embeds # (1,512)
+            txt_emb = outputs.text_embeds # (m,512) m is the number of captions corresponding to this image
+            image_embeddings.append(im_emb[0].detach().cpu().numpy())
+            text_embeddings.append(txt_emb.detach().cpu().numpy())
+            image_ids.append(key)
+                  
+    return image_embeddings, text_embeddings, image_ids
+
+def compute_embeddings_blip(image_id_2_data, model, device, embedding_mode = 'orignal'):
+    '''
+        model: Blip_Embedding instance
+    '''
+    # image transform
+    basic_transforms = transforms.Compose([
+        transforms.Resize((384,384),interpolation=InterpolationMode.BICUBIC),
+        transforms.ToTensor(),
+        transforms.Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)),
+        ])
+    
+    image_ids = []
+    image_embeddings = []
+    text_embeddings = []
+    print('computing embeddings...')
+    if embedding_mode == 'original':
+        for key in tqdm(image_id_2_data.keys()):
+            image = Image.open(image_id_2_data[key]['image_path']).convert('RGB')
+            image = basic_transforms(image).to(device)
+            image = torch.unsqueeze(image,0)
+            texts = image_id_2_data[key]['captions']
+            
+            im_emb, txt_emb, sim = model(image, texts, match_head='itc')
+
+            image_embeddings.append(im_emb[0].detach().cpu().numpy())
+            text_embeddings.append(txt_emb.detach().cpu().numpy())
+            image_ids.append(key)
+
+    elif embedding_mode == 'srl_verb':
+        print('using srl_verbs to compute text embedding...')
+        for key in tqdm(image_id_2_data.keys()):
+            image = Image.open(image_id_2_data[key]['image_path']).convert('RGB')
+            image = basic_transforms(image).to(device)
+            image = torch.unsqueeze(image,0)
+            texts = []
+            raw_text_captions = []
+            for caption_obj in image_id_2_data[key]['captions']:
+                raw_text_captions.append(caption_obj['text'])
+                # print(caption_obj)
+                assert 'verbs' in caption_obj
+                verb_list = [] 
+                for verb_obj in caption_obj['verbs']:
+                    # print(verb_obj)
+                    verb = verb_obj['verb']
+                    if verb.lower() not in ['am','is','are','was','were','being','be']:
+                        verb_list.append(verb.strip())
+                if verb_list:
+                    verb_string = ', '.join(verb_list)
+                    texts.append(verb_string)
+                else:
+                    texts.append(caption_obj['text'])
+            image_id_2_data[key]['captions'] = raw_text_captions
+
+            im_emb, txt_emb, sim = model(image, texts, match_head='itc')
+            image_embeddings.append(im_emb[0].detach().cpu().numpy())
+            text_embeddings.append(txt_emb.detach().cpu().numpy())
+            image_ids.append(key)
+
+    return image_embeddings, text_embeddings, image_ids
+
+def get_groups_coco_train_v_sim_t_dissim(model, processor, image_id_2_data, k1, k2, device, grouping_function = 'clip', embedding_mode = 'original'):
+    ''' grouping image-text by: first group into visually similar groups, then group into textually similar groups
+        parameters:
+        -----------
+        image_id_2_data (dict): {"<image_id>":{"image_path":str,"captions":list(str)}...}
+        embedding_mode (str): decides what embedding to use, choose from [
+            'original' # use the original caption text for computing text embedding 
+            'srl_verb' # use only srl verbs to compute text embedding
+        ] 
+    '''
+    # compute image and text embeddings
+    left_out_ids = [] # storing image_ids from those v_groups that has too little samples to be clustered in the second step
+    if grouping_function == 'clip':
+        image_embeddings, text_embeddings, image_ids = compute_embeddings_clip(image_id_2_data, model, processor, device, embedding_mode = embedding_mode)
+    elif grouping_function == 'blip':
+        image_embeddings, text_embeddings, image_ids = compute_embeddings_blip(image_id_2_data, model, device, embedding_mode)
+
+    assert len(image_embeddings) > k1
+    image_embeddings = np.array(image_embeddings)
+    
+    # step1: cluster image embeddings
+    print("clustering visual embeddings...")
+    kmeans_k1 = KMeans(n_clusters=k1, random_state=0).fit(image_embeddings)
+    labels_k1 = kmeans_k1.labels_
+    v_groups = []
+    for i in range(k1):
+        indices_group_i = np.where(labels_k1 == i)[0]
+        v_groups.append(indices_group_i)
+
+    # step2: cluster text embeddings
+    print("clustering textual embeddings...")
+    v_t_groups = []
+    for v_group in v_groups:
+        text_embeddings_group_i = [text_embeddings[idx][0] for idx in v_group] # FIXME: currently only use the first caption for each image as its text representation 
+        if len(text_embeddings_group_i) < k2:
+            left_out_ids += [image_ids[idx] for idx in v_group]
+            continue
+        kmeans_k2 = KMeans(n_clusters=k2, random_state=0).fit(text_embeddings_group_i)
+        labels_k2 = kmeans_k2.labels_
+        t_groups = []
+        for j in range(k2):
+            indices_group_j = np.where(labels_k2 == j)[0]
+            t_groups.append([v_group[jj] for jj in indices_group_j])
+        v_t_groups.append(t_groups)
+
+    # output grouping with image_id
+    image_id_groups = v_t_groups.copy()
+    is_visited = set()
+    for i in range(len(v_t_groups)):
+        for j in range(k2):
+            for m in range(len(v_t_groups[i][j])):
+                idx = v_t_groups[i][j][m]
+                imid = image_ids[idx]
+                assert imid not in is_visited
+                is_visited.add(imid) 
+                image_id_groups[i][j][m] = imid
+    # sanity check we included all image_ids:
+    for l_o_id in left_out_ids:
+        assert l_o_id not in is_visited
+        is_visited.add(l_o_id)
+    assert is_visited == set(image_ids)
+    print(f'expected num t_v_groups:{k1*k2}, got num t_v_groups:{len(image_id_groups)*k2} | batch size:{k2}')
+
+    # vis
+    visualize_groups(image_id_groups, image_id_2_data, output_root = './visualization/blip', n = 'all', order = 'v_t')
+    
+    return image_id_groups, left_out_ids
+
+def get_groups_coco_train_t_sim_v_dissim(model, processor, image_id_2_data, k1, k2, device, grouping_function = 'clip', embedding_mode = 'original'):
+    '''grouping image-text by: first group into visually similar groups, then group into textually similar groups
+        parameters:
+        -----------
+        image_id_2_data (dict): {"<image_id>":{"image_path":str,"captions":list(str)}...}
+        embedding_mode (str): decides what embedding to use, choose from [
+            'original' # use the original caption text for computing text embedding 
+            'srl_verb' # use only srl verbs to compute text embedding
+        ] 
+    '''
+
+    # compute image and text embeddings
+    left_out_ids = [] # storing image_ids from those v_groups that has too little samples to be clustered in the second step
+    if grouping_function == 'clip':
+        image_embeddings, text_embeddings, image_ids = compute_embeddings_clip(image_id_2_data, model, processor, device, embedding_mode = embedding_mode)
+    elif grouping_function == 'blip':
+        image_embeddings, text_embeddings, image_ids = compute_embeddings_blip(image_id_2_data, model, device, embedding_mode)
+
+    assert len(image_embeddings) > k1
+    assert len(image_embeddings) == len(text_embeddings)
+
+    # step1: cluster textual embedding
+    print("clustering textual embeddings...")
+    text_embeddings_first_caption = np.array([t[0] for t in text_embeddings]) # use the first caption as text representation
+    kmeans_k1 = KMeans(n_clusters=k1, random_state=0).fit(text_embeddings_first_caption)
+    labels_k1 = kmeans_k1.labels_
+    t_groups = []
+    for i in range(k1):
+        indices_group_i = np.where(labels_k1 == i)[0]
+        t_groups.append(indices_group_i)
+        
+    # step 2: cluster image embedding
+    print("clustering visual embeddings...")
+    t_v_groups = []
+    for t_group in t_groups:
+        visual_embeddings_group_i = [image_embeddings[idx] for idx in t_group] 
+        if len(visual_embeddings_group_i) < k2:
+            left_out_ids += [image_ids[idx] for idx in t_group]
+            continue
+        kmeans_k2 = KMeans(n_clusters=k2, random_state=0).fit(visual_embeddings_group_i)
+        labels_k2 = kmeans_k2.labels_
+        v_groups = []
+        for j in range(k2):
+            indices_group_j = np.where(labels_k2 == j)[0]
+            v_groups.append([t_group[jj] for jj in indices_group_j])
+        t_v_groups.append(v_groups)
+
+    image_id_groups = t_v_groups.copy()
+    is_visited = set()
+    for i in range(len(t_v_groups)):
+        for j in range(k2):
+            for m in range(len(t_v_groups[i][j])):
+                idx = t_v_groups[i][j][m]
+                imid = image_ids[idx]
+                assert imid not in is_visited
+                is_visited.add(imid) 
+                image_id_groups[i][j][m] = imid
+    # sanity check we included all image_ids:
+    for l_o_id in left_out_ids:
+        assert l_o_id not in is_visited
+        is_visited.add(l_o_id)
+    assert is_visited == set(image_ids)
+    print(f'expected num t_v_groups:{k1*k2}, got num t_v_groups:{len(image_id_groups)*k2} | batch size:{k2}')
+    
+    # vis
+    visualize_groups(image_id_groups, image_id_2_data, output_root = './visualization/blip', n = 'all', order = 't_v')
+    return image_id_groups, left_out_ids
+
+def get_batches_coco_train_random(image_id_2_data, batch_size):
+    all_pairs = []
+    for imid,data in image_id_2_data.items():
+        for caption_idx in range(len(data['captions'])):
+            all_pairs.append((imid,caption_idx))
+    random.shuffle(all_pairs)
+    batches = []
+    for i in range(len(all_pairs)//batch_size + 1):
+        batches.append(all_pairs[i*batch_size:(i+1)*batch_size])
+    return batches
+    
+# main function performing batching
+def batching(image_root, ann_json, batching_config, device, output_dir = None):
+    ''' current batching_config fields:
+        -------------------------------
+            k1 (int): expected step 1 group number, when batching_root not exist, k1 should be greater than 0
+            k2 (int): expected batch number (per gpu), when batching_root not exist, k2 should be greater than 0
+            batch_size (int): if k2 is not -1, batch_size == k2
+            grouping_function (str): options for grouping functions, choose from ['clip','blip','random']
+            order (str): choose from ["v_t", "t_v"]
+            mode (str): options for sampling, choose from 
+                [
+                    "grouped_only": return a subset of the training set with strictly grouped samples
+                    "grouped_only_shuffle": return a subset of the training set with strictly grouped samples, but reshuffled
+                    "all_duplicate": return a full training set by duplicating image-text pairs that run short during batch sampling within one group
+                    "all_add_as_random": return a full training set, which consist of strictly grouped samples and randomly grouped samples
+                ]
+            model_ckpt (str): path to pretrained model checkpoint if necessary | or model name from huggingface, e.g., openai/clip-vit-base-patch32
+    '''
+    ### helper functions
+    def _add_remaining_to_random_pool(remaining_image_ids, image_id_2_caption_idx, image_id_2_data, random_pool):
+        '''helper function for mode: all_add_as_random; this function add all pairs remains in first_level group that cannot 
+            be grouped into a flat list to be further randomly batched later 
+        '''
+        for im_id in remaining_image_ids:
+            while image_id_2_caption_idx[im_id] < len(image_id_2_data[im_id]['captions']):
+                random_pool.append((im_id, image_id_2_caption_idx[im_id]))
+                image_id_2_caption_idx[im_id] += 1
+    
+    def _sample_from_bi_level_groups_without_duplication(v_group, inputs, batch_size, image_id_2_caption_idx, image_id_2_data, random_pool):
+        assert batch_size == len(v_group) 
+        while True:
+            # check if there are more valid batches
+            valid = True
+            for t in range(batch_size):
+                if v_group[t] == []:
+                    valid = False
+                    break
+            if not valid:
+                flat_v_group_remaining = [item for sublist in v_group for item in sublist]
+                _add_remaining_to_random_pool(flat_v_group_remaining,image_id_2_caption_idx,image_id_2_data,random_pool)
+                break
+            else:
+                batch = []
+                for t in range(batch_size):
+                    rand_idx = np.random.randint(low=0,high=len(v_group[t]))
+                    im_id = v_group[t][rand_idx]
+                    caption_idx = image_id_2_caption_idx[im_id]
+                    batch.append((im_id,caption_idx))
+                    # check if all captions has been used up for the picked image_id in this t_group
+                    image_id_2_caption_idx[im_id] += 1
+                    if image_id_2_caption_idx[im_id] == len(image_id_2_data[im_id]['captions']):
+                        v_group[t].pop(rand_idx)
+                inputs.append(batch)
+
+    def _sample_from_bi_level_groups_with_duplication(v_group, inputs, batch_size, image_id_2_data):
+        assert batch_size == len(v_group)
+        # get image_text pairs for each t_group
+        image_textidx_pairs = []
+        max_t_group_len = 0
+        for t_group in v_group:
+            flattened_t_group = []
+            for im_id in t_group:
+                flattened_t_group += [(im_id,caption_idx) for caption_idx in range(len(image_id_2_data[im_id]['captions']))]
+            random.shuffle(flattened_t_group)
+            image_textidx_pairs.append(flattened_t_group)
+            if max_t_group_len < len(flattened_t_group):
+                max_t_group_len = len(flattened_t_group)
+        # duplicate and padding to the same length
+        for t in range(len(image_textidx_pairs)):
+            while len(image_textidx_pairs[t]) < max_t_group_len:
+                image_textidx_pairs[t] += image_textidx_pairs[t]
+            image_textidx_pairs[t] = image_textidx_pairs[t][:max_t_group_len]
+            assert len(image_textidx_pairs[t]) == max_t_group_len
+            random.shuffle(image_textidx_pairs[t])
+        # sample batches
+        assert batch_size == len(image_textidx_pairs)
+        for j in range(max_t_group_len):
+            inputs.append([image_textidx_pairs[t][j] for t in range(batch_size)])
+    ####################
+    
+    """ prepare image_id_2_data """
+    # load ann json
+    ann = json.load(open(ann_json))
+    # get image_id_2_data dict
+    image_id_2_data = {} # {"<image_id>":{"image_path":str,"captions":list(str)}...}
+    for i_t_pair in ann:
+        image_id = i_t_pair["image_id"]
+        caption = i_t_pair["caption"]
+        image_path = os.path.join(image_root, i_t_pair["image"])
+        if image_id not in image_id_2_data:
+            image_id_2_data[image_id] = {
+                'image_path': image_path,
+                'captions':[caption]
+            }
+        else:
+            image_id_2_data[image_id]['captions'].append(caption)
+
+    
+    """ get batches according to grouping_function """
+    batch_size = batching_config['batch_size']    
+    model_ckpt =  batching_config['model_ckpt']
+    
+    if batching_config['grouping_function'] == "random":
+        inputs = get_batches_coco_train_random(image_id_2_data, batch_size)
+    
+    elif batching_config['grouping_function'] in ["clip","blip"]:
+        k1,k2 = batching_config['k1'],batching_config['k2']
+        mode = batching_config['mode']
+        if 'embedding_mode' in batching_config:
+            embedding_mode = batching_config['embedding_mode']
+        else:
+            embedding_mode = 'original'
+        
+        # set up model
+        if batching_config['grouping_function'] == "clip":
+            model = CLIPModel.from_pretrained(model_ckpt)
+            model.to(device)
+            processor = CLIPProcessor.from_pretrained(model_ckpt)
+        elif batching_config['grouping_function'] == 'blip':
+            model = blip_embedding(pretrained=model_ckpt)
+            model.to(device)
+            processor = None
+
+        if batching_config['order'] == 'v_t':
+            image_id_groups, left_out_ids = get_groups_coco_train_v_sim_t_dissim(model, processor, image_id_2_data, k1, k2, device, batching_config['grouping_function'], embedding_mode)
+        elif batching_config['order'] == 't_v':
+            image_id_groups, left_out_ids = get_groups_coco_train_t_sim_v_dissim(model, processor, image_id_2_data, k1, k2, device, batching_config['grouping_function'], embedding_mode)
+        else:
+            raise NotImplementedError("unkown order")
+
+        # start sampling
+        grouped_inputs = []
+        image_id_2_caption_idx = defaultdict(int)
+        random_pool = []
+        for v_group in image_id_groups:
+            if mode == 'all_duplicate':
+                _sample_from_bi_level_groups_with_duplication(v_group, grouped_inputs, batch_size, image_id_2_data)
+            elif mode in ["grouped_only","grouped_only_shuffle","all_add_as_random"]:
+                _sample_from_bi_level_groups_without_duplication(v_group, grouped_inputs, batch_size, image_id_2_caption_idx, image_id_2_data, random_pool)
+            else:
+                raise NotImplementedError("unkown mode")
+
+        # add left out ids into random pool
+        print('random pool size before adding left out:', len(random_pool))
+        _add_remaining_to_random_pool(left_out_ids, image_id_2_caption_idx, image_id_2_data, random_pool)
+        print('random pool size after adding left out:', len(random_pool))
+
+        print('num grouped inputs:', len(grouped_inputs))
+        # randomly batch datapoints in random pool
+        random.shuffle(random_pool)
+        random_pool_batches = []
+        for i in range(len(random_pool)//batch_size + 1):
+            random_pool_batches.append(random_pool[i*batch_size:(i+1)*batch_size])
+        print('num randomly inputs:',len(random_pool_batches))
+        
+        total_num_pairs = 0
+        for key,item in image_id_2_data.items():
+            total_num_pairs += len(item['captions'])
+        print('total num unique image-text pairs:',total_num_pairs)
+
+        if mode == 'grouped_only':
+            inputs = grouped_inputs
+        elif mode == 'grouped_only_shuffle':
+            flattened = [pair for batch in grouped_inputs for pair in batch]
+            random.shuffle(flattened)
+            inputs = []
+            for i in range(len(flattened)//batch_size + 1):
+                inputs.append(flattened[i*batch_size:(i+1)*batch_size])
+        elif mode == 'all_add_as_random':
+            inputs = grouped_inputs + random_pool_batches
+        elif mode == 'all_duplicate':
+            inputs = grouped_inputs + random_pool_batches # here the random_pool_batches only contains the batches drawn from left_out_ids
+
+    else:
+        raise NotImplementedError("unkown grouping function")
+    
+    print("num of batches:",len(inputs))
+    
+    batching_config['total_num_batches'] = len(inputs)
+    batching_config['total_num_image_text_pairs'] = sum([len(b) for b in inputs])
+
+    if output_dir:
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        with open(os.path.join(output_dir,'batches.json'), 'w') as out:
+            json.dump(inputs, out, indent = 4)
+        with open(os.path.join(output_dir,'image_id_2_data.json'), 'w') as out:
+            json.dump(image_id_2_data, out, indent = 4)
+        with open(os.path.join(output_dir,'batching_config.json'), 'w') as out:
+            json.dump(batching_config, out, indent = 4)
+
+    return inputs, image_id_2_data
+    
+
+from textwrap import wrap
+
+def visualize_groups(image_id_groups, image_id_2_data, output_root = './visualization', n = 'all', order = 'v_t'):
+    '''order: choose from ['v_t','t_v']'''
+    ### helper function
+    def get_max_t_group_len(t_groups):
+        max_len = 1
+        for t_group in t_groups:
+            max_len = max(max_len, len(t_group))
+        return max_len
+    ###################
+
+    k1 = len(image_id_groups)
+    k2 = len(image_id_groups[0])
+
+    if order == 'v_t':
+        output_dir = os.path.join(output_root,f'v_{k1}_t_{k2}')
+    elif order == 't_v':
+        output_dir = os.path.join(output_root,f't_{k1}_v_{k2}')
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
+    if n == 'all':
+        n = k1-1
+
+    for i in range(k1):
+        v_group = image_id_groups[i]
+
+        num_row = len(v_group)
+        num_col = get_max_t_group_len(v_group)
+        fig, axs = plt.subplots(num_row, num_col, figsize=(num_col*1.5,num_row*2))
+        if order == 'v_t':
+            fig.suptitle(f'v_group {i}')
+        elif order == 't_v':
+            fig.suptitle(f't_group {i}')
+
+        print('num_row:',num_row,'num_col:',num_col)
+        for t in range(num_row):
+            t_group = v_group[t]
+            if num_col > 1:
+                for j in range(num_col):
+                    axs[t][j].set_axis_off()
+                    if j < len(t_group):
+                        image_id = t_group[j]
+                        captions = image_id_2_data[image_id]['captions']
+                        image_path = image_id_2_data[image_id]['image_path']
+                        axs[t][j].imshow(Image.open(image_path))
+                        axs[t][j].set_title("\n".join(wrap(f"{captions[0]}", 30)), size=6)
+            else:
+                axs[t].set_axis_off()
+                image_id = t_group[0]
+                captions = image_id_2_data[image_id]['captions']
+                image_path = image_id_2_data[image_id]['image_path']
+                axs[t].imshow(Image.open(image_path))
+                axs[t].set_title("\n".join(wrap(f"{captions[0]}", 30)), size=8)
+        fig.tight_layout()
+        if order == 'v_t':
+            fig.savefig(os.path.join(output_dir, f'visual_group_{i}.png'))
+        elif order == 't_v':
+            fig.savefig(os.path.join(output_dir, f'textual_group_{i}.png'))
+
+        if i == n:
+            break
+
+
+# custom dataset
+class coco_karpathy_train_with_grouping(Dataset):
+    def __init__(self, transform, image_root, ann_json, batching_root, batching_config = None, device = torch.device('cpu'), ratio = 1, max_words=30, prompt=''):        
+        '''
+            image_root (string): Root directory of images (e.g. coco/images/)
+            ann_json (string): path to the annotation file
+            batching_root (string): path to the precomputed grouping jsons, if not exist, will mkdir and call grouping function on the fly and store jsons at this root
+            batching_config (dict): input to batching function, example of using clip for bi-level clustering: {
+                "grouping_function":'clip', 
+                "mode":"all_duplicate", 
+                "k1":500,
+                "k2":8,
+                "batch_size":8,
+                "order":"v_t",
+                "model_ckpt": "openai/clip-vit-base-patch32"
+            } # batching_config field descriptions:
+                k1 (int): expected step 1 group number, when batching_root not exist, k1 should be greater than 0
+                k2 (int): expected batch number (per gpu), when batching_root not exist, k2 should be greater than 0
+                batch_size (int): if k2 is not -1, batch_size == k2
+                grouping_function (str): options for grouping functions, choose from ['clip','blip','random']
+                order (str): choose from ["v_t", "t_v"]
+                mode (str): options for sampling, choose from 
+                    [
+                        "grouped_only": return a subset of the training set with strictly grouped samples
+                        "grouped_only_shuffle": return a subset of the training set with strictly grouped samples, but reshuffled
+                        "all_duplicate": return a full training set by duplicating image-text pairs that run short during batch sampling within one group
+                        "all_add_as_random": return a full training set, which consist of strictly grouped samples and randomly grouped samples
+                    ]
+                model_ckpt (str): path to pretrained model checkpoint if necessary | or model name from huggingface, e.g., openai/clip-vit-base-patch32
+            ratio (int): if not 1, return a portion of all batched samples
+        '''        
+
+        # get groups        
+        if not os.path.exists(os.path.join(batching_root,'batches.json')):
+            assert batching_config is not None
+            if not os.path.exists(batching_root):
+                os.makedirs(batching_root)
+            self.inputs, self.image_id_2_data = batching(image_root, ann_json, batching_config, device, output_dir = batching_root)
+        else:
+            print(f'loading precomputed batches from: {batching_root}')
+            batching_config = json.load(open(os.path.join(batching_root,'batching_config.json')))
+            print(f'batching config:')
+            print(batching_config)
+            self.inputs = json.load(open(os.path.join(batching_root,'batches.json')))
+            self.image_id_2_data = json.load(open(os.path.join(batching_root,'image_id_2_data.json')))
+
+        self.transform = transform
+        self.image_root = image_root
+        self.max_words = max_words      
+        self.prompt = prompt
+        
+        if ratio != 1:
+            print(f"using part of all batches: {ratio}")
+            self.inputs = self.inputs[:ratio*len(self.inputs)]
+        print('total batch num:', len(self.inputs))
+        print('batch size:',len(self.inputs[0]))
+
+        self.img_ids = {}  
+        n = 0
+        for batch in self.inputs:
+            for pair in batch:
+                img_id = pair[0]
+                if img_id not in self.img_ids.keys():
+                    self.img_ids[img_id] = n
+                    n += 1
+
+    def __len__(self):
+        return len(self.inputs)
+    
+    def __getitem__(self, index):
+        batch = self.inputs[index]
+        images = []
+        captions = []
+        img_idxs = []
+        for pair in batch:
+            im_id = pair[0]
+            caption_idx = pair[1]
+            image_path = os.path.join(self.image_root,self.image_id_2_data[im_id]['image_path'])        
+            image = Image.open(image_path).convert('RGB')
+            if self.transform is not None:   
+                image = self.transform(image)
+            images.append(image)
+
+            caption = self.prompt+pre_caption(self.image_id_2_data[im_id]['captions'][caption_idx], self.max_words)
+            captions.append(caption)
+            img_idxs.append(self.img_ids[im_id])
+
+        ## visualize
+        # self._vis_batch(images, captions, index)
+        images = torch.stack(images)
+        img_idxs = torch.LongTensor(img_idxs)
+        return images, captions, img_idxs
+    
+    def _vis_batch(self, images, captions, index):
+        fig, axs = plt.subplots(1, self.batch_size, figsize=(20,8))
+        fig.suptitle(f'vis batch')
+        for i in range(self.batch_size):
+            axs[i].set_axis_off()
+            axs[i].imshow(images[i])
+            axs[i].set_title("\n".join(wrap(f"{captions[i]}", 30)), size=6)
+        fig.tight_layout()
+        fig.savefig(f'vis_batch_{index}.png')
+
+
+if __name__ == '__main__':
+    
+    random.seed(42)
+    np.random.seed(42)
+
+    ''' set up device '''
+    # use cuda
+    if torch.cuda.is_available():  
+        dev = "cuda:1" 
+    else:  
+        dev = "cpu"
+    device = torch.device(dev)
+
+    '''Test custom new batching function using BLIP'''
+    image_root = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/knowledge_prompted/coco_retrieval/subset_custom_images'
+    ann_json = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/knowledge_prompted/coco_retrieval/subset_custom_annotation/coco_karpathy_train_subset_custom_100.json'
+    # ann_json = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/data_engineering/srl_results/srl__coco_karpathy_train_subset_custom_100.json'
+    batching_root = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/data_engineering/grouping/unit_test_3-2-blip'
+
+    # "grouped_only": return a subset of the training set with strictly grouped samples
+    # "grouped_only_shuffle": return a subset of the training set with strictly grouped samples, but reshuffled
+    # "all_duplicate": return a full training set by duplicating image-text pairs that run short during batch sampling within one group
+    # "all_add_as_random": return a full training set, which consist of strictly grouped samples and randomly grouped samples
+    batching_config = {
+            "grouping_function":'blip', 
+            "mode":"all_duplicate", 
+            "k1":4,
+            "k2":4,
+            "batch_size":4,
+            "order":"t_v",
+            "model_ckpt": "/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/ckpt/pretrained/model_base.pth",
+            "embedding_mode":"original"
+        }
+
+    transform_test = transforms.Compose([
+        transforms.Resize((384,384),interpolation=InterpolationMode.BICUBIC),
+        transforms.ToTensor(),
+        transforms.Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)),
+        ])
+
+    dataset = coco_karpathy_train_with_grouping(
+        transform_test, 
+        image_root, 
+        ann_json, 
+        batching_root, 
+        batching_config = batching_config, 
+        device = device,
+        ratio = 1, 
+        max_words=30, 
+        prompt=''
+    )
+
+    print(dataset[0][0].size())
+    print(dataset[0][1])
+    print(dataset[0][2])
+    
+    # '''Test custom new batching function and dataset class'''
+    # image_root = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/knowledge_prompted/coco_retrieval/subset_custom_images'
+    # # ann_json = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/knowledge_prompted/coco_retrieval/subset_custom_annotation/coco_karpathy_train_subset_custom_100.json'
+    # ann_json = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/data_engineering/srl_results/srl__coco_karpathy_train_subset_custom_100.json'
+    # batching_root = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/data_engineering/grouping/unit_test_3-2-srl-03'
+
+    # # "grouped_only": return a subset of the training set with strictly grouped samples
+    # # "grouped_only_shuffle": return a subset of the training set with strictly grouped samples, but reshuffled
+    # # "all_duplicate": return a full training set by duplicating image-text pairs that run short during batch sampling within one group
+    # # "all_add_as_random": return a full training set, which consist of strictly grouped samples and randomly grouped samples
+    # batching_config = {
+    #         "grouping_function":'clip', 
+    #         "mode":"all_duplicate", 
+    #         "k1":6,
+    #         "k2":4,
+    #         "batch_size":4,
+    #         "order":"t_v",
+    #         "model_ckpt": "openai/clip-vit-base-patch32",
+    #         "embedding_mode":"srl_verb"
+    #     }
+
+    # transform_test = transforms.Compose([
+    #     transforms.Resize((384,384),interpolation=InterpolationMode.BICUBIC),
+    #     transforms.ToTensor(),
+    #     transforms.Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)),
+    #     ])
+
+    # dataset = coco_karpathy_train_with_grouping(
+    #     transform_test, 
+    #     image_root, 
+    #     ann_json, 
+    #     batching_root, 
+    #     batching_config = batching_config, 
+    #     device = device,
+    #     ratio = 1, 
+    #     max_words=30, 
+    #     prompt=''
+    # )
+
+    # print(dataset[0][0].size())
+    # print(dataset[0][1])
+    # print(dataset[0][2])
+    # # print(dataset[100][0][0].size())
+    # # print(dataset[100][1])
+    # # print(dataset[100][2])
+
+
+    
+
+
+
+
+    '''old Test custom subset v-sim-t-dissim'''
+    # image_root = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/knowledge_prompted/coco_retrieval/subset_custom_images'
+    # ann_json = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/knowledge_prompted/coco_retrieval/subset_custom_annotation/coco_karpathy_train_subset_custom_100.json'
+    
+    # k1 = 4 # number of visually similar groups
+    # k2 = 25 # number of textually similar groups within each visually similar groups
+    # # for k1,k2 in [(4,4),(3,5),(6,4),(5,4),(2,6)]:
+    
+    # ### v -> t
+    # image_id_groups, left_out_ids, image_id_2_data = get_groups_coco_train_v_sim_t_dissim(
+    #     model, processor, image_root, ann_json, k1, k2, device)
+
+    # output_batching_root = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/data_engineering/grouping'
+    # output_grouping_dir = os.path.join(output_batching_root,f'coco_retrieval_subset_custom-v_{k1}_t_{k2}')
+    # if not os.path.exists(output_grouping_dir):
+    #     os.makedirs(output_grouping_dir)
+    # with open(os.path.join(output_grouping_dir,'image_id_groups.json'), 'w') as out:
+    #     json.dump(image_id_groups, out, indent = 4)
+    # with open(os.path.join(output_grouping_dir,'left_out_ids.json'), 'w') as out:
+    #     json.dump(left_out_ids, out, indent = 4)
+    # with open(os.path.join(output_grouping_dir,'image_id_2_data.json'), 'w') as out:
+    #     json.dump(image_id_2_data, out, indent = 4)
+
+    # ### t -> v
+    # image_id_groups, left_out_ids, image_id_2_data = get_groups_coco_train_t_sim_v_dissim(
+    #     model, processor, image_root, ann_json, k1, k2, device)
+
+    # output_batching_root = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/data_engineering/grouping'
+    # output_grouping_dir = os.path.join(output_batching_root,f'coco_retrieval_subset_custom-t_{k1}_v_{k2}')
+    # if not os.path.exists(output_grouping_dir):
+    #     os.makedirs(output_grouping_dir)
+    # with open(os.path.join(output_grouping_dir,'image_id_groups.json'), 'w') as out:
+    #     json.dump(image_id_groups, out, indent = 4)
+    # with open(os.path.join(output_grouping_dir,'left_out_ids.json'), 'w') as out:
+    #     json.dump(left_out_ids, out, indent = 4)
+    # with open(os.path.join(output_grouping_dir,'image_id_2_data.json'), 'w') as out:
+    #     json.dump(image_id_2_data, out, indent = 4)
+    
+    '''Test custom subset t-sim-v-dissim'''
+        # image_root = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/knowledge_prompted/coco_retrieval/subset_custom_images'
+        # ann_json = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/knowledge_prompted/coco_retrieval/subset_custom_annotation/coco_karpathy_train_subset_custom_100.json'
+        
+        # k1 = 4 # number of visually similar groups
+        # k2 = 4 # number of textually similar groups within each visually similar groups
+        # # for k1,k2 in [(4,4),(3,5),(6,4),(5,4),(2,6)]:
+        # image_id_groups, image_id_2_data = get_groups_coco_train_t_sim_v_dissim(image_root, ann_json, k1, k2)
+        # # visualize
+        # print('saving visualization...')
+        # visualize_groups(image_id_groups, image_id_2_data, output_root='./visualization/coco_subset_custom_t-sim-v-dissim', order = 't_v')
+        # print('saving grouping...')
+        # output_batching_root = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/data_engineering/grouping'
+        # output_grouping_dir = os.path.join(output_batching_root,f'coco_retrieval_subset_custom-t_{k1}_v_{k2}')
+        # if not os.path.exists(output_grouping_dir):
+        #     os.makedirs(output_grouping_dir)
+        # with open(os.path.join(output_grouping_dir,'image_id_groups.json'), 'w') as out:
+        #     json.dump(image_id_groups, out, indent = 4)
+        # with open(os.path.join(output_grouping_dir,'image_id_2_data.json'), 'w') as out:
+        #     json.dump(image_id_2_data, out, indent = 4)
+    
+    '''Test custom subset v-t-concat'''
+        # image_root = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/knowledge_prompted/coco_retrieval/subset_custom_images'
+        # ann_json = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/knowledge_prompted/coco_retrieval/subset_custom_annotation/coco_karpathy_train_subset_custom_100.json'
+        
+        # k = 10 # number of groups
+        # image_id_groups, image_id_2_data = get_groups_coco_train_v_t_concat(image_root, ann_json, k)
+        # # visualize
+        # visualize_groups_v_t_concat(image_id_groups, image_id_2_data, output_root='./visualization/coco_subset_custom-v_t_concat')
+
+        # output_batching_root = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/data_engineering/grouping'
+        # output_grouping_dir = os.path.join(output_batching_root,f'coco_retrieval_subset_custom-v_t_concat-k_{k}')
+        # if not os.path.exists(output_grouping_dir):
+        #     os.makedirs(output_grouping_dir)
+        # with open(os.path.join(output_grouping_dir,'image_id_groups.json'), 'w') as out:
+        #     json.dump(image_id_groups, out, indent = 4)
+        # with open(os.path.join(output_grouping_dir,'image_id_2_data.json'), 'w') as out:
+        #     json.dump(image_id_2_data, out, indent = 4)
+        
+    '''coco retrieval train set v -> t'''
+        # image_root = '/shared/nas/data/m1/wangz3/Shared_Datasets/VL/COCO/images'
+        # ann_json = '/shared/nas/data/m1/wangz3/Shared_Datasets/VL/COCO/annotations/coco_karpathy_train.json'
+        
+        # k1 = 1000 # number of visually similar groups
+        # k2 = 8 # number of textually similar groups within each visually similar groups
+        
+        # image_id_groups, image_id_2_data = get_groups_coco_train_v_sim_t_dissim(image_root, ann_json, k1, k2)
+        # # visualize_groups(image_id_groups, image_id_2_data)
+
+        # output_batching_root = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/data_engineering/grouping'
+        # output_grouping_dir = os.path.join(output_batching_root,f'coco_retrieval_trainset-v_{k1}_t_{k2}')
+        # if not os.path.exists(output_grouping_dir):
+        #     os.makedirs(output_grouping_dir)
+        # with open(os.path.join(output_grouping_dir,'image_id_groups.json'), 'w') as out:
+        #     json.dump(image_id_groups, out, indent = 4)
+        # with open(os.path.join(output_grouping_dir,'image_id_2_data.json'), 'w') as out:
+        #     json.dump(image_id_2_data, out, indent = 4)
+
+    '''coco retrieval train set t -> v'''
+        # image_root = '/shared/nas/data/m1/wangz3/Shared_Datasets/VL/COCO/images'
+        # ann_json = '/shared/nas/data/m1/wangz3/Shared_Datasets/VL/COCO/annotations/coco_karpathy_train.json'
+        
+        # k1 = 500 # number of visually similar groups
+        # k2 = 8 # number of textually similar groups within each visually similar groups
+        
+        # image_id_groups, image_id_2_data = get_groups_coco_train_t_sim_v_dissim(image_root, ann_json, k1, k2)
+        
+        # visualize_groups(image_id_groups, image_id_2_data, output_root='./visualization/coco_full_trainset', n=10, order = 't_v')
+
+        # output_batching_root = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/data_engineering/grouping'
+        # output_grouping_dir = os.path.join(output_batching_root,f'coco_retrieval_trainset-t_{k1}_v_{k2}')
+        # if not os.path.exists(output_grouping_dir):
+        #     os.makedirs(output_grouping_dir)
+        # with open(os.path.join(output_grouping_dir,'image_id_groups.json'), 'w') as out:
+        #     json.dump(image_id_groups, out, indent = 4)
+        # with open(os.path.join(output_grouping_dir,'image_id_2_data.json'), 'w') as out:
+        #     json.dump(image_id_2_data, out, indent = 4)
+
+    '''visualize only'''
+        # image_id_groups_json = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/data_engineering/grouping/coco_retrieval_trainset-v_500_t_8/image_id_groups.json'
+        # image_id_2_data_json = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/data_engineering/grouping/coco_retrieval_trainset-v_500_t_8/image_id_2_data.json'
+        # image_id_groups = json.load(open(image_id_groups_json))
+        # image_id_2_data = json.load(open(image_id_2_data_json))
+        
+        # visualize_groups(image_id_groups, image_id_2_data, output_root = './visualization/coco_full_trainset', n=10)
+    
+        # image_id_groups_json = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/data_engineering/grouping/coco_retrieval_trainset-v_1000_t_8/image_id_groups.json'
+        # image_id_2_data_json = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/data_engineering/grouping/coco_retrieval_trainset-v_1000_t_8/image_id_2_data.json'
+        # image_id_groups = json.load(open(image_id_groups_json))
+        # image_id_2_data = json.load(open(image_id_2_data_json))
+        
+        # visualize_groups(image_id_groups, image_id_2_data, output_root = './visualization/coco_full_trainset', n=10)
+    
+    '''test dataset'''
+        ## subset
+        # image_root = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/knowledge_prompted/coco_retrieval/subset_custom_images'
+        # ann_json = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/knowledge_prompted/coco_retrieval/subset_custom_annotation/coco_karpathy_train_subset_custom_100.json'
+        
+        # image_id_groups_json = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/data_engineering/grouping/coco_retrieval_subset_custom-v_4_t_4/image_id_groups.json'
+        # image_id_2_data_json = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/data_engineering/grouping/coco_retrieval_subset_custom-v_4_t_4/image_id_2_data.json'
+        # image_id_groups = json.load(open(image_id_groups_json))
+        # image_id_2_data = json.load(open(image_id_2_data_json))
+
+        ## full train set
+        # image_root = '/shared/nas/data/m1/wangz3/Shared_Datasets/VL/COCO/images'
+        # ann_json = '/shared/nas/data/m1/wangz3/Shared_Datasets/VL/COCO/annotations/coco_karpathy_train.json'
+    
+        # image_id_groups_json = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/data_engineering/grouping/coco_retrieval_trainset-v_500_t_8/image_id_groups.json'
+        # image_id_2_data_json = '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/data_engineering/grouping/coco_retrieval_trainset-v_500_t_8/image_id_2_data.json'
+        # image_id_groups = json.load(open(image_id_groups_json))
+        # image_id_2_data = json.load(open(image_id_2_data_json))
+
+        # dataset = coco_karpathy_train_with_grouping(
+        #     None, 
+        #     image_root, 
+        #     ann_json, 
+        #     image_id_groups = image_id_groups, 
+        #     image_id_2_data = image_id_2_data, 
+        #     max_words=30, 
+        #     prompt='',
+        #     if_use_all = False
+        # )
+        # print(dataset[0])
+        # print(dataset[100])
+        # print(dataset[200])
+        # print(dataset[300])
+        # print(dataset[400])
+
+    '''get random batches'''
+    
+        # def get_subset_coco_train_random(ann_json, n, k2, output_dir = '.'):
+        #     ann = json.load(open(ann_json))
+        #     random.shuffle(ann)
+        #     ann = ann[:n*k2]
+        #     print('num of samples:',len(ann))
+        #     with open(os.path.join(output_dir,f'random_subset_{n}-{k2}.json'), 'w') as out:
+        #         json.dump(ann, out, indent=4)
+
+        # image_root = '/shared/nas/data/m1/wangz3/Shared_Datasets/VL/COCO/images'
+        # ann_json = '/shared/nas/data/m1/wangz3/Shared_Datasets/VL/COCO/annotations/coco_karpathy_train.json'
+        # n = 26815
+        # get_subset_coco_train_random(ann_json, n, 8)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+########################
+## Archive #############
+########################
+# def get_groups_coco_train_v_t_concat(image_root, ann_json, k):
+#     '''grouping image-text by: first group into visually similar groups, then group into textually similar groups'''
+    
+#     ''' set up device '''
+#     # use cuda
+#     if torch.cuda.is_available():  
+#         dev = "cuda:3" 
+#     else:  
+#         dev = "cpu"
+#     device = torch.device(dev)
+
+#     # set up clip model
+#     model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+#     model.to(device)
+#     processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+
+#     ann = json.load(open(ann_json))
+
+#     image_id_2_data = {}
+#     for i_t_pair in ann:
+#         image_id = i_t_pair["image_id"]
+#         caption = i_t_pair["caption"]
+#         image_path = os.path.join(image_root, i_t_pair["image"])
+#         if image_id not in image_id_2_data:
+#             image_id_2_data[image_id] = {
+#                 'image_path': image_path,
+#                 'captions':[caption]
+#             }
+#         else:
+#             image_id_2_data[image_id]['captions'].append(caption)
+#     print(len(image_id_2_data))
+
+#     image_ids = []
+#     image_embeddings = []
+#     text_embeddings = []
+#     im_txt_concat_embeddings = []
+
+#     for key in tqdm(image_id_2_data.keys()):
+#         image = Image.open(image_id_2_data[key]['image_path']).convert('RGB')
+#         texts = image_id_2_data[key]['captions']
+#         # print(key, image.size, image.mode)
+#         inputs = processor(
+#             text=texts, images=image, return_tensors="pt", padding=True
+#         ).to(device)
+#         outputs = model(**inputs)
+#         im_emb = outputs.image_embeds # (1,512)
+#         txt_emb = outputs.text_embeds # (m,512) m is the number of captions corresponding to this image
+#         # print(im_emb.size())
+#         # print(txt_emb.size())
+#         image_embeddings.append(im_emb[0].detach().cpu().numpy())
+#         text_embeddings.append(txt_emb.detach().cpu().numpy())
+#         image_ids.append(key)
+#         im_txt_emb = np.concatenate([image_embeddings[-1],text_embeddings[-1][0]]) 
+#         # print(im_txt_emb.shape)
+#         im_txt_concat_embeddings.append(im_txt_emb)
+
+#     im_txt_concat_embeddings = np.array(im_txt_concat_embeddings)
+#     # cluster image-text 
+#     kmeans = KMeans(n_clusters=k, random_state=0).fit(im_txt_concat_embeddings)
+#     labels = kmeans.labels_
+#     groups = []
+#     for i in range(k):
+#         indices_group_i = np.where(labels == i)[0]
+#         groups.append(indices_group_i)
+#     print(groups)
+#     print('--------------')
+#     ret_groups = []
+#     is_visited = set()
+#     for i in range(k):
+#         g = []
+#         for j in range(len(groups[i])):
+#             idx = groups[i][j]
+#             assert idx not in is_visited
+#             is_visited.add(idx)
+#             g.append(image_ids[idx])
+#         ret_groups.append(g)
+#     print(ret_groups)
+#     return ret_groups, image_id_2_data
+
+
+# def visualize_groups_v_t_concat(image_id_groups, image_id_2_data, output_root = './visualization', n = 'all'):
+#     k = len(image_id_groups)
+
+#     output_dir = os.path.join(output_root,f'k_{k}')
+#     if not os.path.exists(output_dir):
+#         os.makedirs(output_dir)
+    
+#     if n == 'all':
+#         n = k-1
+
+#     for i in range(k):
+#         v_t_concat_group = image_id_groups[i]
+
+#         num_col = 10
+#         num_row = (len(v_t_concat_group) // 10) + 1 
+#         fig, axs = plt.subplots(num_row, num_col, figsize=(num_col*1.5,num_row*2))
+#         fig.suptitle(f'v_t_concat_group {i}')
+#         print('row:',num_row,'col:',num_col)
+#         if num_row > 1:
+#             for r in range(num_row):
+#                 for c in range(num_col):
+#                     axs[r][c].set_axis_off()
+#                     idx = r*num_col + c
+#                     if idx <= len(v_t_concat_group) - 1:
+#                         image_id = v_t_concat_group[idx]
+#                         captions = image_id_2_data[image_id]['captions']
+#                         image_path = image_id_2_data[image_id]['image_path']
+#                         axs[r][c].imshow(Image.open(image_path))
+#                         axs[r][c].set_title("\n".join(wrap(f"{captions[0]}", 30)), size=6)
+#         else:
+#             for c in range(num_col):
+#                 axs[c].set_axis_off()
+#                 idx = c
+#                 if idx <= len(v_t_concat_group) - 1:
+#                     image_id = v_t_concat_group[idx]
+#                     captions = image_id_2_data[image_id]['captions']
+#                     image_path = image_id_2_data[image_id]['image_path']
+#                     axs[c].imshow(Image.open(image_path))
+#                     axs[c].set_title("\n".join(wrap(f"{captions[0]}", 30)), size=6)
+
+#         fig.tight_layout()
+#         fig.savefig(os.path.join(output_dir, f'visual_group_{i}.png'))
+#         if i == n:
+#             quit()
+
+

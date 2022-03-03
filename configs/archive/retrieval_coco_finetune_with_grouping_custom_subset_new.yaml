@@ -1,0 +1,50 @@
+image_root: '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/knowledge_prompted/coco_retrieval/subset_custom_images'
+ann_json: '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/knowledge_prompted/coco_retrieval/subset_custom_annotation/coco_karpathy_train_subset_custom_100.json'
+ann_root: '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/knowledge_prompted/coco_retrieval/subset_custom_annotation/'
+val_ann_json: '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/knowledge_prompted/coco_retrieval/subset_custom_annotation/coco_karpathy_val_subset_custom.json'
+test_ann_json: '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/knowledge_prompted/coco_retrieval/subset_custom_annotation/coco_karpathy_test_subset_custom.json'
+batching_root: '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/data_engineering/grouping/unit_test_3-2-02'
+dataset: 'coco_with_grouping'
+batching_config:
+  grouping_function: 'clip'
+  mode: 'all_duplicate'
+  k1: 4
+  k2: 4
+  batch_size: 4
+  order: 't_v'
+  model_ckpt: 'openai/clip-vit-base-patch32'
+ratio: 1
+
+
+# set pretrained as a file path or an url
+pretrained: '/shared/nas/data/m1/wangz3/video_language_pretraining_project/BLIP/ckpt/pretrained/model_base.pth'
+
+# size of vit model; base or large
+
+vit: 'base'
+batch_size_train: 1 # pre-computed groups already batched, batch size equal to k2
+batch_size_test: 64
+vit_grad_ckpt: True
+vit_ckpt_layer: 4
+init_lr: 1e-5
+
+# vit: 'large'
+# batch_size_train: 16
+# batch_size_test: 32
+# vit_grad_ckpt: True
+# vit_ckpt_layer: 12
+# init_lr: 5e-6
+
+image_size: 384
+queue_size: 57600
+alpha: 0.4
+k_test: 10
+negative_all_rank: True
+
+# optimizer
+weight_decay: 0.05
+min_lr: 0
+max_epoch: 5 # original 6
+
+
+
