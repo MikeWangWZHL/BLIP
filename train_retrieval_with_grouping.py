@@ -235,8 +235,8 @@ def main(args, config):
 
     #### Dataset #### 
     print("Creating retrieval dataset")
-    train_dataset, val_dataset, test_dataset = create_dataset('retrieval_%s'%config['dataset'], config, device = device)  
-    
+    train_dataset, val_dataset, test_dataset = create_dataset('retrieval_%s'%config['dataset'], config, device = device)  # device: cuda
+
     if args.distributed:
         num_tasks = utils.get_world_size()
         global_rank = utils.get_rank()            

@@ -210,6 +210,7 @@ class coco_karpathy_train_with_grouping(Dataset):
             filename = 'coco_karpathy_train.json'
             download_url(url,ann_root)
             ann_json = os.path.join(ann_root, filename)
+        print('using training ann:',ann_json)
 
         # get groups
         batching_root = batching_config['batching_root']

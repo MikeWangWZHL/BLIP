@@ -19,34 +19,47 @@ from torchvision.transforms.functional import InterpolationMode
 
 import pickle
 
+def get_arg0_arg1_from_srl_result(verb_obj, words):
+    arg0_indices = []
+    arg1_indices = []
+    for i in range(len(verb_obj['tags'])):
+        tag = verb_obj['tags'][i]
+        parsed_tag = tag.split('-')
+        if len(parsed_tag) < 2:
+            continue
+        if parsed_tag[1] == 'ARG0':
+            arg0_indices.append(i)
+        elif parsed_tag[1] == 'ARG1':
+            arg1_indices.append(i)
+    if arg0_indices:
+        arg0 = ' '.join(words[arg0_indices[0]:arg0_indices[-1]+1])
+    else:
+        arg0 = ''
+    if arg1_indices:
+        arg1 = ' '.join(words[arg1_indices[0]:arg1_indices[-1]+1])
+    else:
+        arg1 = ''
+    return arg0, arg1
+
 def compute_embeddings_clip(image_id_2_data, model, processor, device, embedding_mode = 'orignal'):
     image_ids = []
     image_embeddings = []
     text_embeddings = []
     print('computing embeddings...')
-    if embedding_mode == 'original':
-        for key in tqdm(image_id_2_data.keys()):
+    print(f'using embedding mode:{embedding_mode}')
+    for key in tqdm(image_id_2_data.keys()):
+        if embedding_mode == 'original':
+            # print('using original text to compute text embedding...')
             image = Image.open(image_id_2_data[key]['image_path']).convert('RGB')
             texts = image_id_2_data[key]['captions']
-            inputs = processor(
-                text=texts, images=image, return_tensors="pt", padding=True
-            ).to(device)
-            outputs = model(**inputs)
-            im_emb = outputs.image_embeds # (1,512)
-            txt_emb = outputs.text_embeds # (m,512) m is the number of captions corresponding to this image
-            image_embeddings.append(im_emb[0].detach().cpu().numpy())
-            text_embeddings.append(txt_emb.detach().cpu().numpy())
-            image_ids.append(key)
-    elif embedding_mode == 'srl_verb':
-        print('using srl_verbs to compute text embedding...')
-        for key in tqdm(image_id_2_data.keys()):
+        elif embedding_mode == 'srl_verb':
+            # print('using srl_verbs to compute text embedding...')
             image = Image.open(image_id_2_data[key]['image_path']).convert('RGB')
             texts = []
             for caption_obj in image_id_2_data[key]['captions']:
                 assert 'verbs' in caption_obj
                 verb_list = [] 
                 for verb_obj in caption_obj['verbs']:
-                    # print(verb_obj)
                     verb = verb_obj['verb']
                     if verb.lower() not in ['am','is','are','was','were','being','be']:
                         verb_list.append(verb.strip())
@@ -55,18 +68,36 @@ def compute_embeddings_clip(image_id_2_data, model, processor, device, embedding
                     texts.append(verb_string)
                 else:
                     texts.append(caption_obj['text'])
-            # print(texts)
-            inputs = processor( 
-                text=texts, images=image, return_tensors="pt", padding=True
-            ).to(device)
-            outputs = model(**inputs)
-            im_emb = outputs.image_embeds # (1,512)
-            txt_emb = outputs.text_embeds # (m,512) m is the number of captions corresponding to this image
-            image_embeddings.append(im_emb[0].detach().cpu().numpy())
-            text_embeddings.append(txt_emb.detach().cpu().numpy())
-            image_ids.append(key)
-    else:
-        raise NotImplementedError
+        elif embedding_mode == 'srl_arg0_verb_arg1':
+            # print('using srl_arg0_verb_arg1 to compute text embedding...')
+            image = Image.open(image_id_2_data[key]['image_path']).convert('RGB')
+            texts = []
+            for caption_obj in image_id_2_data[key]['captions']:
+                assert 'verbs' in caption_obj
+                assert 'words' in caption_obj
+                words = caption_obj['words']
+                SPO_list = []
+                for verb_obj in caption_obj['verbs']:
+                    arg0, arg1 = get_arg0_arg1_from_srl_result(verb_obj, words)
+                    arg0_v_arg1_string = ' '.join([arg0.strip(), verb_obj['verb'], arg1.strip()])
+                    SPO_list.append(arg0_v_arg1_string.strip())
+                if SPO_list:
+                    SPO_string = '. '.join(SPO_list)
+                    texts.append(SPO_string)
+                else:
+                    texts.append(caption_obj['text'])
+        else:
+            raise NotImplementedError
+        # print(texts)
+        inputs = processor( 
+            text=texts, images=image, return_tensors="pt", padding=True, truncation = True
+        ).to(device)
+        outputs = model(**inputs)
+        im_emb = outputs.image_embeds # (1,512)
+        txt_emb = outputs.text_embeds # (m,512) m is the number of captions corresponding to this image
+        image_embeddings.append(im_emb[0].detach().cpu().numpy())
+        text_embeddings.append(txt_emb.detach().cpu().numpy())
+        image_ids.append(key)
                   
     return image_embeddings, text_embeddings, image_ids
 
@@ -85,22 +116,16 @@ def compute_embeddings_blip(image_id_2_data, model, device, embedding_mode = 'or
     image_embeddings = []
     text_embeddings = []
     print('computing embeddings...')
-    if embedding_mode == 'original':
-        for key in tqdm(image_id_2_data.keys()):
+    print(f'using embedding mode:{embedding_mode}')
+    for key in tqdm(image_id_2_data.keys()):
+        if embedding_mode == 'original':
             image = Image.open(image_id_2_data[key]['image_path']).convert('RGB')
             image = basic_transforms(image).to(device)
             image = torch.unsqueeze(image,0)
             texts = image_id_2_data[key]['captions']
-            
-            im_emb, txt_emb, sim = model(image, texts, match_head='itc')
 
-            image_embeddings.append(im_emb[0].detach().cpu().numpy())
-            text_embeddings.append(txt_emb.detach().cpu().numpy())
-            image_ids.append(key)
-
-    elif embedding_mode == 'srl_verb':
-        print('using srl_verbs to compute text embedding...')
-        for key in tqdm(image_id_2_data.keys()):
+        elif embedding_mode == 'srl_verb':
+            # print('using srl_verbs to compute text embedding...')
             image = Image.open(image_id_2_data[key]['image_path']).convert('RGB')
             image = basic_transforms(image).to(device)
             image = torch.unsqueeze(image,0)
@@ -120,10 +145,33 @@ def compute_embeddings_blip(image_id_2_data, model, device, embedding_mode = 'or
                 else:
                     texts.append(caption_obj['text'])
 
-            im_emb, txt_emb, sim = model(image, texts, match_head='itc')
-            image_embeddings.append(im_emb[0].detach().cpu().numpy())
-            text_embeddings.append(txt_emb.detach().cpu().numpy())
-            image_ids.append(key)
+        elif embedding_mode == 'srl_arg0_verb_arg1':
+            # print('using srl_arg0_verb_arg1 to compute text embedding...')
+            image = Image.open(image_id_2_data[key]['image_path']).convert('RGB')
+            image = basic_transforms(image).to(device)
+            image = torch.unsqueeze(image,0)
+            texts = []
+            for caption_obj in image_id_2_data[key]['captions']:
+                assert 'verbs' in caption_obj
+                assert 'words' in caption_obj
+                words = caption_obj['words']
+                SPO_list = []
+                for verb_obj in caption_obj['verbs']:
+                    arg0, arg1 = get_arg0_arg1_from_srl_result(verb_obj, words)
+                    arg0_v_arg1_string = ' '.join([arg0.strip(), verb_obj['verb'], arg1.strip()])
+                    SPO_list.append(arg0_v_arg1_string.strip())
+                if SPO_list:
+                    SPO_string = '. '.join(SPO_list)
+                    texts.append(SPO_string)
+                else:
+                    texts.append(caption_obj['text'])
+        else:
+            raise NotImplementedError
+
+        im_emb, txt_emb, sim = model(image, texts, match_head='itc')
+        image_embeddings.append(im_emb[0].detach().cpu().numpy())
+        text_embeddings.append(txt_emb.detach().cpu().numpy())
+        image_ids.append(key)
 
     return image_embeddings, text_embeddings, image_ids
 
@@ -336,6 +384,7 @@ def get_batches_coco_train_random(image_id_2_data, batching_config):
     return batches
     
 # main function performing batching
+@torch.no_grad()
 def batching(image_root, ann_json, batching_config, device, output_dir = None):
     ''' current batching_config fields:
         -------------------------------
@@ -454,10 +503,12 @@ def batching(image_root, ann_json, batching_config, device, output_dir = None):
             model = CLIPModel.from_pretrained(model_ckpt)
             model.to(device)
             processor = CLIPProcessor.from_pretrained(model_ckpt)
+            model.eval()
         elif batching_config['grouping_function'] == 'blip':
             model = blip_embedding(pretrained=model_ckpt)
             model.to(device)
             processor = None
+            model.eval()
 
         if batching_config['order'] == 'v_t':
             image_id_groups, left_out_ids = get_groups_coco_train_v_sim_t_dissim(model, processor, image_id_2_data, k1, k2, device, batching_config)

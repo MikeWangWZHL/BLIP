@@ -70,12 +70,14 @@ def create_dataset(dataset, config, min_scale=0.5, device = torch.device('cpu'))
             device = device,
             ratio = config['ratio']
         )
-        if 'val_ann_json' not in config:
+        if 'val_ann_json' not in config or config['val_ann_json'] is None:
+            print('using official val dataset')
             val_dataset = coco_karpathy_retrieval_eval(transform_test, config['image_root'], config['ann_root'], 'val') 
         else:
             print('using custom val set:', config['val_ann_json'])
             val_dataset = coco_karpathy_retrieval_eval_subset_custom(transform_test, config['image_root'], config['val_ann_json']) 
-        if 'test_ann_json' not in config:
+        if 'test_ann_json' not in config or config['test_ann_json'] is None:
+            print('using official test dataset')
             test_dataset = coco_karpathy_retrieval_eval(transform_test, config['image_root'], config['ann_root'], 'test')
         else:          
             print('using custom test set:', config['test_ann_json'])
@@ -133,6 +135,7 @@ def create_loader(datasets, samplers, batch_size, num_workers, is_trains, collat
         else:
             shuffle = False
             drop_last = False
+            # drop_last = True
         loader = DataLoader(
             dataset,
             batch_size=bs,

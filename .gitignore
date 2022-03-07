@@ -45,6 +45,8 @@ ckpt
 pre-training_datasets
 data_engineering/grouping
 data_engineering/srl_results
+data_engineering/srl_stats
 data_engineering/visualization
+knowledge_prompted/coco_retrieval/original_annotation
 batching
 embedding
